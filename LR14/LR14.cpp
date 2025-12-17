@@ -4,32 +4,32 @@
 #include <cstdlib>
 #include <time.h>
 // Константи для обмежень
-#define MAX_Q_TEXT 50 // Максимальна довжина тексту питання
 #define MAX_OPT_TEXT 128 // Максимальна довжина тексту варіанту відповіді
 #define MAX_OPTIONS 4 // Максимальна кількість варіантів відповіді
 #define MAX_QUESTIONS 20 // Максимальна кількість питань у базі
 #define MAX_DIFFICULTY 3 // Максимальний рівень складності
 #define Q_WIDTH 50   // Ширина для стовпця "Питання"
 #define D_WIDTH 12   // Ширина для стовпця "Складність"
-#define A_WIDTH 50   // Ширина для стовпців "Відповідь 1/2/3/4"
+#define A_WIDTH 15   // Ширина для стовпців "Відповідь 1/2/3/4"
 #define R_WIDTH 14    // Ширина для стовпця "Правильна"
+#define W_STAT 10 // Ширина для стовпця "Статус"
 
 // Макроси для перевірки коректності введених даних
 #define isValidLevel(level) ((level) >= 1 && (level) <= 3)
 #define isValidNumOptions(num) ((num) >= 2 && (num) <= MAX_OPTIONS)
 #define isValidNumQuestions(num) ((num) >= 1 && (num) <= MAX_QUESTIONS)
 
-struct Task1
+typedef struct QuestionsForQuestiniory
 {
 	int num;
-    char Question[MAX_Q_TEXT];
+    char Question[MAX_OPT_TEXT];
 	int difficulty;
 	char *Answer[MAX_OPTIONS];
 	int RightAnswer;
-};
+} QFQ;
 
-void createQuestionnaire(Task1* pQuestiniory, int numQuestions) {
-	char answer1[MAX_OPT_TEXT];
+void createQuestionnaire(QFQ* pQuestiniory, int numQuestions) {
+	char answer[MAX_OPT_TEXT];
 	for(int i = 0; i < numQuestions; i++) {
 		pQuestiniory[i].num = i + 1;
 		printf("Enter question: ");
@@ -41,8 +41,8 @@ void createQuestionnaire(Task1* pQuestiniory, int numQuestions) {
 		printf("Enter 4 possible answers:\n");
 		for (int j = 0; j < 4; j++) {
 			printf("Answer %d: ", j + 1);
-			gets_s(answer1, MAX_OPT_TEXT);
-			pQuestiniory[i].Answer[j]= _strdup(answer1);
+			gets_s(answer, MAX_OPT_TEXT);
+			pQuestiniory[i].Answer[j] = _strdup(answer);
 			rewind(stdin);
 		}
 		printf("Enter number of the right answer (1-4): ");
@@ -51,7 +51,7 @@ void createQuestionnaire(Task1* pQuestiniory, int numQuestions) {
 	}
 }
 
-void generateQuiz(const Task1* pQuestiniory, int numQuestions, int* quizArray, int quizLen) {
+void generateQuiz(const QFQ* pQuestiniory, int numQuestions, int* quizArray, int quizLen) {
 	int questionsPerDifficulty = quizLen / MAX_DIFFICULTY;
 	int remaining = quizLen % MAX_DIFFICULTY;
 
@@ -59,88 +59,113 @@ void generateQuiz(const Task1* pQuestiniory, int numQuestions, int* quizArray, i
 	for (int d = 1; d <= MAX_DIFFICULTY; d++) {
 		requiredCounts[d] = questionsPerDifficulty;
 		if (remaining > 0) {
-			requiredCounts[d]++; // Розподіляємо залишок
+			requiredCounts[d]++;
 			remaining--;
 		}
 	}
-	// 2. Випадковий вибір з перевіркою квоти та унікальності
-	int selectedIndices[MAX_QUESTIONS] = { 0 }; // Для відстеження унікальності
-	int count = 0; // Кількість обраних питань
-	int attempts = 0; // Для запобігання нескінченному циклу, якщо неможливо знайти питання
 
-	while (count < quizLen && attempts < numQuestions * 5) { // Обмеження спроб
+	int count = 0;
+	int attempts = 0;
+	const int MAX_ATTEMPTS = numQuestions * 20; // Збільшуємо ліміт для надійності
+
+	while (count < quizLen && attempts < MAX_ATTEMPTS) {
 		attempts++;
 
-		// Вибираємо випадковий індекс
 		int randIndex = rand() % numQuestions;
 		int difficulty = pQuestiniory[randIndex].difficulty;
 
-		// A. Перевірка, чи не перевищує складність квоту
-		if (difficulty >= 1 && difficulty <= MAX_DIFFICULTY) {
-			if (requiredCounts[difficulty] <= 0) {
-				continue;
-			}
-		}
-		else {
-			continue;
-		}
-		// B. Перевірка, чи це питання вже обрано (логіка з вашого оригінального коду)
+		// Перевірка на унікальність (щоб не додати одне питання двічі)
 		int alreadySelected = 0;
 		for (int i = 0; i < count; i++) {
-			if (selectedIndices[i] == randIndex) {
+			if (quizArray[i] == randIndex) {
 				alreadySelected = 1;
 				break;
 			}
 		}
+		if (alreadySelected) continue;
 
-		// C. Якщо питання унікальне та в межах квоти, додаємо його
-		if (!alreadySelected) {
-			selectedIndices[count] = randIndex;
+		// ЗАПОБІЖНИК:
+		// Якщо ми зробили багато спроб (наприклад, більше половини ліміту),
+		// ми дозволяємо брати питання БУДЬ-ЯКОЇ складності, аби заповнити тест.
+		int forceMode = (attempts > MAX_ATTEMPTS / 2);
+
+		if (forceMode || (difficulty >= 1 && difficulty <= MAX_DIFFICULTY && requiredCounts[difficulty] > 0)) {
 			quizArray[count] = randIndex;
-			// Зменшуємо необхідну кількість для цього рівня складності
-			requiredCounts[difficulty]--;
+			if (!forceMode) {
+				requiredCounts[difficulty]--;
+			}
 			count++;
-			attempts = 0; // Скидаємо лічильник спроб після успішного вибору
+			// Не скидаємо attempts повністю, щоб "forceMode" не вимкнувся завчасно,
+			// але даємо шанс алгоритму дозаповнити масив.
 		}
+	}
+
+	// Якщо навіть після цього тест не повний (наприклад, quizLen > numQuestions)
+	if (count < quizLen) {
+		printf("\n[Warning] Could not find enough unique questions. Quiz limited to %d items.\n", count);
 	}
 }
 
-void quizQuestion(const Task1* pQuestiniory, int* quizArray, const int quizLen, int* answers) {
-	int score = 0;
-	int *userAnswer = answers;
-	printf("Quiz Time!\n");
-	int* currentQuestion = quizArray;
-	int i;
-	for (i = 0; currentQuestion != quizArray + quizLen; i++, currentQuestion++) {
-		printf("Question: %s\n", pQuestiniory[*currentQuestion].Question);
-		printf("Answers:");
-		if (scanf_s("%d", userAnswer+i)==0) {
-			printf("Invalid input. Please enter a number between 1 and 4.\n");
-			rewind(stdin);
-			i--;
-			currentQuestion--;
-			continue;
+void quizQuestion(QFQ* pQuestiniory, int* quizArray, const int quizLen, int* answers) {
+	printf("\n=== Quiz Time! ===\n");
+	int i, j;
+	int* pIdx= quizArray;
+	QFQ* currentQuestion=pQuestiniory;
+	for (i = 0; pIdx != quizArray+ quizLen; pIdx++, i++) {
+		printf("\nQuestion %d: %s\n", i + 1, (currentQuestion + *pIdx)->Question);
+		for (j = 0; j < 4; j++) {
+			printf(" %d. %s\n", j + 1, (currentQuestion + *pIdx)->Answer[j]);
 		}
+
+		printf("Your Answer: ");
+		// Прямий запис у масив за індексом набагато безпечніший за арифметику вказівників
+		scanf_s("%d", &answers[i]);
+
+		rewind(stdin); // Обов'язково чистимо буфер після кожного вводу
 	}
 }
 
-void checkTheResulrts(const Task1* pQuestiniory, int* quizArray, int* userAnswers, const int quizLen) {
-	
-}
+void checkTheResulrts(const QFQ* pQuestiniory, int* quizArray, int* userAnswers, const int quizLen) {
+	if (quizLen <= 0) return;
+	const char* status;
+	const char* userAnsText;
+	const char* correctAnsText;
+	int correctCount = 0;
+	printf("\n\n%*s === QUIZ RESULTS TABLE ===\n", 20, "");
+	// Заголовок таблиці
+	printf("| %-2s | %-*s | %-*s | %-*s | %-*s |\n",
+		"N", Q_WIDTH, "Question", A_WIDTH, "Your Answer", A_WIDTH, "Correct", W_STAT, "Status");
 
-int computeResults(int* quizArray, int* userAnswers, const int quizLen) {
-	int score = 0;
-	int* currentQuestion = quizArray;
-	int* userAnswer = userAnswers;
-	for(; currentQuestion != quizArray + quizLen; currentQuestion++, userAnswer++) {
-		if (*userAnswers== *quizArray) {
-			score++;
-		}
+	for (int i = 0; i < quizLen; i++) {
+		int qIdx = quizArray[i];
+		int userChoice = userAnswers[i];
+		int correctChoice = pQuestiniory[qIdx].RightAnswer;
+
+		status = (userChoice == correctChoice) ? "CORRECT" : "WRONG";
+		if (userChoice == correctChoice) correctCount++;
+
+		// Отримуємо тексти відповідей (з перевіркою на випадок некоректного вводу)
+		userAnsText = (userChoice >= 1 && userChoice <= 4) ? pQuestiniory[qIdx].Answer[userChoice - 1] : "Invalid";
+		correctAnsText = pQuestiniory[qIdx].Answer[correctChoice - 1];
+
+		// Вивід рядка таблиці
+		printf("| %-2d | %-50.50s | %-15.15s | %-15.15s | %-10s |\n",
+			i + 1,
+			pQuestiniory[qIdx].Question,
+			userAnsText,
+			correctAnsText,
+			status);
 	}
-	return score;
+	// Підсумок під таблицею
+	float percentage = ((float)correctCount / quizLen) * 100;
+	printf("\nSUMMARY:\n");
+	printf("Total Questions: %d\n", quizLen);
+	printf("Correct Answers: %d\n", correctCount);
+	printf("Success Rate:    %.2f%%\n", percentage);
 }
 
-void printQuestionnaire(const Task1* pQuestiniory, int numQuestions) {
+
+void printQuestionnaire(const QFQ* pQuestiniory, int numQuestions) {
 	if (numQuestions <= 0) {
 		printf("Анкету не знайдено або вона порожня.\n");
 		return;
@@ -150,31 +175,25 @@ void printQuestionnaire(const Task1* pQuestiniory, int numQuestions) {
 
 	// Формат для заголовка: 
 	// | № | Питання | Скл. | Відп. 1 | ... | Прав. |
-	printf("+-----+");
-	for (int i = 0; i < Q_WIDTH + D_WIDTH + 4 * A_WIDTH + R_WIDTH + 20; i++) printf("-");
-	printf("+\n");
 
-	printf("| %-3s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n",
+	printf("| %-2s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s | %-*s |\n",
 		"N", Q_WIDTH, "Question", D_WIDTH, "Dificult",
 		A_WIDTH, "Answ. 1", A_WIDTH, "Answ. 2",
 		A_WIDTH, "Answ. 3", A_WIDTH, "Answ. 4",
 		R_WIDTH, "Right Answer");
 
 	// Лінія розділення
-	printf("+-----+");
-	for (int i = 0; i < Q_WIDTH + D_WIDTH + 4 * A_WIDTH + R_WIDTH + 20; i++) printf("-");
-	printf("+\n");
 
 	// --- 2. Вивід даних ---
 
 	for (int i = 0; i < numQuestions; i++) {
 		// Вивід основної інформації в один рядок
-		printf("| %-3d | %-*.*s | %-*d |",
+		printf("| %-2d | %-*.*s | %-*d |",
 			i + 1,
 			Q_WIDTH, Q_WIDTH, pQuestiniory[i].Question, // Обрізання тексту питання
 			D_WIDTH, pQuestiniory[i].difficulty);
 
-		// Вивід відповідей
+			// Вивід відповідей
 		for (int j = 0; j < 4; j++) {
 			// Обрізання тексту відповіді
 			printf(" %-*.*s |", A_WIDTH, A_WIDTH, pQuestiniory[i].Answer[j]);
@@ -182,11 +201,7 @@ void printQuestionnaire(const Task1* pQuestiniory, int numQuestions) {
 
 		// Вивід правильної відповіді
 		printf(" %-*d |\n", R_WIDTH, pQuestiniory[i].RightAnswer);
-
 		// Додаткова лінія розділення між записами
-		printf("+-----+");
-		for (int k = 0; k < Q_WIDTH + D_WIDTH + 4 * A_WIDTH + R_WIDTH + 20; k++) printf("-");
-		printf("+\n");
 	}
 }
 
@@ -194,11 +209,12 @@ void printQuestionnaire(const Task1* pQuestiniory, int numQuestions) {
 int main()
 {
 	srand(time(NULL));
-	struct Task1 questiniory[MAX_QUESTIONS];
-	struct Task1* pQuestiniory = questiniory;
+	QFQ questiniory[MAX_QUESTIONS];
+	QFQ* pQuestiniory = questiniory;
 	
 	int arrQuiz[MAX_QUESTIONS], *pArrQuiz;
 	int arrAnswers[MAX_QUESTIONS], * pArrAnswers;
+	int userAnswer[MAX_QUESTIONS];
 	pArrQuiz = arrQuiz;
 	pArrAnswers = arrAnswers;
 	int numQuestions = 0;
@@ -206,12 +222,13 @@ int main()
 	printf("Questionnaire Creation:\n");
 	printf("Input number of questions: ");
 	scanf_s("%d", &numQuestions);
-	if (!isValidNumOptions(numQuestions)) {
+	if (!isValidNumQuestions(numQuestions)) {
 		printf("Invalid number of questions. Must be between 1 and %d.\n", MAX_QUESTIONS);
 		return 1;
 	}
 	rewind(stdin);
 	createQuestionnaire(pQuestiniory, numQuestions);
+	printQuestionnaire(pQuestiniory, numQuestions);
 	printf("Input number of questions for questiniory: ");
 	scanf_s("%d", &numQuestiniowyQuestions);
 	rewind(stdin);
@@ -219,10 +236,9 @@ int main()
 		printf("Invalid number of questiniory questions. Must be between 1 and %d.\n", numQuestions);
 		return 1;
 	}
+	system("cls");
 	generateQuiz(pQuestiniory, numQuestions, pArrQuiz, numQuestiniowyQuestions);
-	/*quizQuestion(pQuestiniory, pArrQuiz, numQuestiniowyQuestions, pArrAnswers);
-	int result = computeResults(pArrQuiz, pArrAnswers, numQuestiniowyQuestions);
-	printf("Your score: %d out of %d\n", result, numQuestiniowyQuestions);*/
-	printQuestionnaire(pQuestiniory, numQuestions);
+	quizQuestion(pQuestiniory, pArrQuiz, numQuestiniowyQuestions, userAnswer);
+	checkTheResulrts(pQuestiniory, pArrQuiz, userAnswer, numQuestiniowyQuestions);
 	return 0;
 }
