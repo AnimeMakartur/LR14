@@ -67,15 +67,17 @@ void generateQuiz(const QFQ* pQuestiniory, int numQuestions, int* quizArray, int
 	int count = 0;
 	int attempts = 0;
 	const int MAX_ATTEMPTS = numQuestions * 20; // Збільшуємо ліміт для надійності
-
+	int randIndex;
+	int difficulty;
+	int alreadySelected;
 	while (count < quizLen && attempts < MAX_ATTEMPTS) {
 		attempts++;
 
-		int randIndex = rand() % numQuestions;
-		int difficulty = pQuestiniory[randIndex].difficulty;
+		randIndex = rand() % numQuestions;
+		difficulty = pQuestiniory[randIndex].difficulty;
 
 		// Перевірка на унікальність (щоб не додати одне питання двічі)
-		int alreadySelected = 0;
+		alreadySelected = 0;
 		for (int i = 0; i < count; i++) {
 			if (quizArray[i] == randIndex) {
 				alreadySelected = 1;
@@ -131,15 +133,18 @@ void checkTheResulrts(const QFQ* pQuestiniory, int* quizArray, int* userAnswers,
 	const char* userAnsText;
 	const char* correctAnsText;
 	int correctCount = 0;
+	int qIdx;
+	int userChoice;
+	int correctChoice;
 	printf("\n\n%*s === QUIZ RESULTS TABLE ===\n", 20, "");
 	// Заголовок таблиці
 	printf("| %-2s | %-*s | %-*s | %-*s | %-*s |\n",
 		"N", Q_WIDTH, "Question", A_WIDTH, "Your Answer", A_WIDTH, "Correct", W_STAT, "Status");
 
 	for (int i = 0; i < quizLen; i++) {
-		int qIdx = quizArray[i];
-		int userChoice = userAnswers[i];
-		int correctChoice = pQuestiniory[qIdx].RightAnswer;
+		qIdx = quizArray[i];
+		userChoice = userAnswers[i];
+		correctChoice = pQuestiniory[qIdx].RightAnswer;
 
 		status = (userChoice == correctChoice) ? "CORRECT" : "WRONG";
 		if (userChoice == correctChoice) correctCount++;
@@ -157,11 +162,11 @@ void checkTheResulrts(const QFQ* pQuestiniory, int* quizArray, int* userAnswers,
 			status);
 	}
 	// Підсумок під таблицею
-	float percentage = ((float)correctCount / quizLen) * 100;
+	double percentage = ((float)correctCount / quizLen) * 100;
 	printf("\nSUMMARY:\n");
 	printf("Total Questions: %d\n", quizLen);
 	printf("Correct Answers: %d\n", correctCount);
-	printf("Success Rate:    %.2f%%\n", percentage);
+	printf("Success Rate:    %.2lf%%\n", percentage);
 }
 
 
