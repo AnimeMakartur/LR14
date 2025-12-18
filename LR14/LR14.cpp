@@ -19,7 +19,7 @@
 #define isValidNumOptions(num) ((num) >= 1 && (num) <= MAX_OPTIONS)
 #define isValidNumQuestions(num) ((num) >= 1 && (num) <= MAX_QUESTIONS)
 
-typedef struct QuestionsForQuestiniory
+typedef struct QuestionsForQuestinioryAndItVeryLongNameLol
 {
     char Question[MAX_OPT_TEXT];
 	int difficulty;
@@ -191,7 +191,7 @@ void printTheResulrts(const QFQ* pQuestiniory, int* quizArray, int* userAnswers,
 		printf("%s\n", line);
 	}
 	// Підсумок під таблицею
-	double percentage = ((float)correctCount / quizLen) * 100;
+	double percentage = ((double)correctCount / quizLen) * 100;
 	printf("\nSUMMARY:\n");
 	printf("Total Questions: %d\n", quizLen);
 	printf("Correct Answers: %d\n", correctCount);
@@ -265,3 +265,5 @@ int main()
 	printTheResulrts(questiniory, arrQuiz, userAnswer, numQuestiniowyQuestions);// Перевірка результатів тесту
 	return 0;
 }
+
+
